@@ -114,8 +114,9 @@ func NewAuthorizer(backend AuthBackend, key []byte, defaultRole string, roles ma
 }
 
 // Login logs a user in. They will be redirected to dest or to the last
-// location an authorization redirect was triggered (if found) on success. A
-// message will be added to the session on failure with the reason.
+// location an authorization redirect was triggered (if found) on success
+// if the request was a GET. All other requests  types are not redirected.
+// A message will be added to the session on failure with the reason.
 func (a Authorizer) Login(rw http.ResponseWriter, req *http.Request, u string, p string, dest string) error {
 	session, _ := a.cookiejar.Get(req, "auth")
 	if session.Values["username"] != nil {
@@ -134,11 +135,13 @@ func (a Authorizer) Login(rw http.ResponseWriter, req *http.Request, u string, p
 	session.Values["username"] = u
 	session.Save(req, rw)
 
-	redirectSession, _ := a.cookiejar.Get(req, "redirects")
-	if flashes := redirectSession.Flashes(); len(flashes) > 0 {
-		dest = flashes[0].(string)
+	if dest != "" {
+		redirectSession, _ := a.cookiejar.Get(req, "redirects")
+		if flashes := redirectSession.Flashes(); len(flashes) > 0 {
+			dest = flashes[0].(string)
+		}
+		http.Redirect(rw, req, dest, http.StatusSeeOther)
 	}
-	http.Redirect(rw, req, dest, http.StatusSeeOther)
 	return nil
 }
 
